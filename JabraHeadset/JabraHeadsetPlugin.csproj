@@ -41,12 +41,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="FSClient">
-      <HintPath>..\bin\Debug\FSClient.exe</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="JabraSDK">
       <HintPath>..\External Items\JabraSDK.dll</HintPath>
     </Reference>
@@ -69,6 +66,12 @@
       <Link>libjabra.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </AdditionalFiles>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FSClient.csproj">
+      <Project>{a2d2a785-3b79-4042-9c3d-97b1cd9a804e}</Project>
+      <Name>FSClient</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

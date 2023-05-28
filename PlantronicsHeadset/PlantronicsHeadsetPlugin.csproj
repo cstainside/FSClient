@@ -42,6 +42,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Plantronics.Device.Common, Version=2.1.39537.0, Culture=neutral, PublicKeyToken=a8048bce41894b6e, processorArchitecture=x86">
