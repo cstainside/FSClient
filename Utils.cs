@@ -120,7 +120,9 @@ namespace FSClient {
 #if DEBUG_LOG
 			if (writer == null)
 				writer = new StreamWriter(GetUserDataPath() + "\\debug.log");
-			writer.WriteLine(str);
+			DateTime timestamp = DateTime.Now;
+            writer.WriteLine("[{0:d2}.{1:d2} {2:d2}:{3:d2}:{4:d2}.{5:d2}]", timestamp.Month, timestamp.Day, timestamp.Hour, timestamp.Minute, timestamp.Second, timestamp.Millisecond);
+            writer.WriteLine(str);
 			writer.Flush();
 #endif
 		}
