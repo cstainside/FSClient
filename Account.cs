@@ -48,7 +48,8 @@ namespace FSClient {
 									new Field(Field.FIELD_TYPE.Password,"Password", "password","password","",""),
 									new	Field(Field.FIELD_TYPE.String, "Caller ID Name","caller_id_name","","",""),
 									new	Field(Field.FIELD_TYPE.String, "Caller ID Number","caller_id_number","","",""),
-									new	Field(Field.FIELD_TYPE.String, "SIP URL for Checking Voicemail","sip_check_voicemail_url","","",""),
+                                    new Field(Field.FIELD_TYPE.Bool,"Use extension in contact","extension_in_contact","extension_in_contact","false",""),
+                                    new	Field(Field.FIELD_TYPE.String, "SIP URL for Checking Voicemail","sip_check_voicemail_url","","",""),
 									new	Field(Field.FIELD_TYPE.String, "SIP URL for Sending to Voicemail","sip_send_voicemail_url","","",""),
 									new Field(Field.FIELD_TYPE.Bool,"Register","register","register","true",""),
 									new Field(Field.FIELD_TYPE.Combo,"Register Transport","register-transport","register-transport","udp","", "udp","tcp","sctp","tls"),
@@ -380,6 +381,15 @@ namespace FSClient {
 				}
 				if (value.field.name == "sip_secure_media")
 					secure_media = value.value == "true";
+                if(value.field.name == "extension_in_contact")
+                {
+                    if(value.value == "true")
+                    {
+                        FieldValue user = FieldValue.GetByName(values, "username");
+                        Utils.add_xml_param(node, "extension-in-contact", user.value);
+                    }
+                    continue;
+                }
 				Utils.add_xml_param(node, value.field.xml_name, value.value);
 			}
 			//Was preventing gateway ID from being passed to create_channel so removed (needed for incoming calls)
