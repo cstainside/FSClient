@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Windows;
 using System.Xml;
 using System.Xml.Serialization;
@@ -102,6 +104,35 @@ namespace FSClient {
 					else
 						tls_cert_check_already = true;
 				}
+
+                if(     value.field.name == "ext-rtp-ip" 
+                    ||  value.field.name == "ext-sip-ip" 
+                    ||  value.field.name == "rtp-ip"
+                    ||  value.field.name == "sip-ip")
+                {                   
+                    if (value.value.EndsWith(".x"))
+                    {
+                        // finding matching dynamic local IP
+                        string ipPart = value.value.Substring(0, value.value.IndexOf(".x")+1);
+                        foreach (NetworkInterface item in NetworkInterface.GetAllNetworkInterfaces())
+                        {
+                            if (item.OperationalStatus == OperationalStatus.Up)
+                            {
+                                foreach (UnicastIPAddressInformation ip in item.GetIPProperties().UnicastAddresses)
+                                {
+                                    if (ip.Address.AddressFamily == AddressFamily.InterNetwork)
+                                    {
+                                        if (ip.Address.ToString().StartsWith(ipPart))
+                                        {
+                                            param_value = ip.Address.ToString();
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
 				Utils.add_xml_param(settings, value.field.xml_name, param_value);
 				if (value.field.xml_name == "codec-prefs") {
