@@ -41,7 +41,8 @@ namespace FSClient {
 				bgWorker.RunWorkerCompleted += bgWorker_RunWorkerCompleted;
 				bg_watcher.Start();
 			}
-			BGArgs newBGArgs = new BGArgs { args = args, cmd = cmd };
+            DebugWrite(String.Format("CMD: {0} {1}", cmd, args));
+            BGArgs newBGArgs = new BGArgs { args = args, cmd = cmd };
 			lock (pending_bg_queue.SyncRoot) {
 				if (bgWorker.IsBusy || pending_bg_queue.Count > 0)
 					pending_bg_queue.Enqueue(newBGArgs);
@@ -139,9 +140,9 @@ namespace FSClient {
 			}
 			DebugWrite(event_dump + "\n");
 #endif
-		}
+        }
 
-		[DllImport("user32")]
+        [DllImport("user32")]
 		public static extern IntPtr GetForegroundWindow();
 		[DllImport("user32")]
 		public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
