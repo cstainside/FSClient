@@ -1,14 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using FreeSWITCH.Native;
+
 namespace FSClient {
 	public class Call : ObservableClass {
 		private class Channel {
@@ -405,8 +404,10 @@ namespace FSClient {
 
 		}
 
-		private static void HandleCustomEvent(FSEvent evt, string uuid) {
-			if (evt.subclass_name == "portaudio::ringing") {
+		private static void HandleCustomEvent(FSEvent evt, string uuid)
+		{
+			if (evt.subclass_name == "portaudio::ringing")
+			{
 				Utils.DebugEventDump(evt);
 				if ((from c in calls where c._leg_a_uuid == uuid && c.call_ended == false select c).Count() > 0)//only care about first ring
 					return;
@@ -417,16 +418,19 @@ namespace FSClient {
 				calls.Add(call);
 				call.UpdateCallState(CALL_STATE.Ringing, active_call ?? call);
 			}
-			else if (evt.subclass_name == "portaudio::makecall") {
+			else if (evt.subclass_name == "portaudio::makecall")
+			{
 				Utils.DebugEventDump(evt);
-				if (evt.get_header("fail") == "true") {
+				if (evt.get_header("fail") == "true")
+				{
 					MessageBox.Show("Make Call failed!!!, came from portaudio not sure why");
 					return;
 				}
 				Call call = new Call();
 				call.is_outgoing = true;
 				call.SetCallInfoFromEvent(evt);
-				if (call.other_party_number == "fsc_conference"){
+				if (call.other_party_number == "fsc_conference")
+				{
 					call.visibility = Visibility.Collapsed;
 					Conference.instance.our_conference_call = call;
 					call.is_conference_call = true;
@@ -434,7 +438,8 @@ namespace FSClient {
 				calls.Add(call);
 				call.UpdateCallState(call.is_conference_call ? CALL_STATE.Answered : CALL_STATE.Ringing, call);
 			}
-			else if (evt.subclass_name == "portaudio::callheld" || evt.subclass_name == "portaudio::callresumed") {
+			else if (evt.subclass_name == "portaudio::callheld" || evt.subclass_name == "portaudio::callresumed")
+			{
 				String paid_str = evt.get_header("variable_pa_call_id");
 				if (String.IsNullOrEmpty(paid_str))
 					return;
@@ -447,9 +452,173 @@ namespace FSClient {
 				else
 					call.UpdateCallState(call.state == CALL_STATE.Ringing ? CALL_STATE.Hold_Ringing : CALL_STATE.Hold, call == active_call ? null : active_call);
 			}
-		}
+			else if (evt.subclass_name == "uacsta::request::MakeCall")
+			{
+                Utils.DebugEventDump(evt);
+                String direction = evt.get_header("direction");
+                String device = evt.get_header("device");
+                String called = evt.get_header("called");
+                String invokeID = evt.get_header("invoke_id");
+                //TODO: should check whether uaCSTA is allowed in config
+                if (String.IsNullOrEmpty(direction) || direction != "in") 				
+					return; // Not for softphone                
 
-		private static void HandleChannelAnswerEvent(FSEvent evt, String uuid) {
+                Event response = new Event("CUSTOM", "uacsta::response::MakeCall");	// Response to mod_uacsta
+				response.AddHeader("direction", "out");                
+				if (!String.IsNullOrEmpty(invokeID))
+					response.AddHeader("invoke_id", invokeID);
+                if (!String.IsNullOrEmpty(device))
+                    response.AddHeader("device", device);
+
+                if (String.IsNullOrEmpty(called) || String.IsNullOrEmpty(device))
+				{
+                    Utils.DebugWrite("Originator or called number not specified!");
+                    response.AddHeader("result", "failed");
+                    response.AddHeader("resultnote", "Originator or called number not specified!");
+					response.Fire();
+                    return;
+				}
+                response.AddHeader("result", "OK");
+                response.Fire();
+                //TODO: Multiline support: Get account by device and use the proper account instead of the default one.
+				// Making the call
+                Broker.get_instance().DialString(called);                
+            }
+            else if (evt.subclass_name == "uacsta::request::AnswerCall")
+			{
+                Utils.DebugEventDump(evt);
+                String direction = evt.get_header("direction");
+                String device = evt.get_header("device");
+                String invokeID = evt.get_header("invoke_id");
+                //TODO: should check whether uaCSTA is allowed in config
+                if (String.IsNullOrEmpty(direction) || direction != "in")				
+					return; // Not for softphone                
+
+                Event response = new Event("CUSTOM", "uacsta::response::MakeCall"); // Response to mod_uacsta
+                response.AddHeader("direction", "out");
+                if (!String.IsNullOrEmpty(invokeID))
+                    response.AddHeader("invoke_id", invokeID);
+                if (!String.IsNullOrEmpty(device))
+                    response.AddHeader("device", device);
+                //TODO: Multiline support: Get account by device and select only the call with the matching gateway_id.
+
+                Call call = (from c in calls where c.state == CALL_STATE.Ringing && c.call_ended == false select c).SingleOrDefault();
+				if (call == null)
+				{
+                    Utils.DebugWrite("No ringing calls!");
+                    response.AddHeader("result", "failed");
+                    response.AddHeader("resultnote", "No ringing calls!");
+					response.Fire();
+                    return;
+				}
+                response.AddHeader("result", "OK");
+                response.Fire();
+
+				// Answering the call
+                call.answer();                
+            }
+            else if (evt.subclass_name == "uacsta::request::ClearConnection")
+            {
+                Utils.DebugEventDump(evt);
+                String direction = evt.get_header("direction");
+                String device = evt.get_header("device");
+                String invokeID = evt.get_header("invoke_id");
+                //TODO: should check whether uaCSTA is allowed in config
+                if (String.IsNullOrEmpty(direction) || direction != "in")
+                    return; // Not for softphone                
+
+                Event response = new Event("CUSTOM", "uacsta::response::ClearConnection"); // Response to mod_uacsta
+                response.AddHeader("direction", "out");
+                if (!String.IsNullOrEmpty(invokeID))
+                    response.AddHeader("invoke_id", invokeID);
+                if (!String.IsNullOrEmpty(device))
+                    response.AddHeader("device", device);
+                //TODO: Multiline support: Get account by device and select only the call with the matching gateway_id.
+
+                Call call = (from c in calls where c.call_ended == false select c).SingleOrDefault();
+                if (call == null)
+                {
+                    Utils.DebugWrite("No calls!");
+                    response.AddHeader("result", "failed");
+                    response.AddHeader("resultnote", "No call found!");
+                    response.Fire();
+                    return;
+                }
+                response.AddHeader("result", "OK");
+                response.Fire();
+
+                // Hooking on
+                call.hangup();
+            }
+            else if (evt.subclass_name == "uacsta::request::HoldCall")
+            {
+                Utils.DebugEventDump(evt);
+                String direction = evt.get_header("direction");
+                String device = evt.get_header("device");
+                String invokeID = evt.get_header("invoke_id");
+                //TODO: should check whether uaCSTA is allowed in config
+                if (String.IsNullOrEmpty(direction) || direction != "in")
+                    return; // Not for softphone                
+
+                Event response = new Event("CUSTOM", "uacsta::response::HoldCall"); // Response to mod_uacsta
+                response.AddHeader("direction", "out");
+                if (!String.IsNullOrEmpty(invokeID))
+                    response.AddHeader("invoke_id", invokeID);
+                if (!String.IsNullOrEmpty(device))
+                    response.AddHeader("device", device);
+                //TODO: Multiline support: Get account by device and select only the call with the matching gateway_id.
+
+                Call call = (from c in calls where c.state == CALL_STATE.Answered && c.call_ended == false select c).SingleOrDefault();
+                if (call == null)
+                {
+                    Utils.DebugWrite("No calls!");
+                    response.AddHeader("result", "failed");
+                    response.AddHeader("resultnote", "No answered call found!");
+                    response.Fire();
+                    return;
+                }
+                response.AddHeader("result", "OK");
+                response.Fire();
+
+                // Hooking on
+                call.hold();
+            }
+            else if (evt.subclass_name == "uacsta::request::RetrieveCall")
+            {
+                Utils.DebugEventDump(evt);
+                String direction = evt.get_header("direction");
+                String device = evt.get_header("device");
+                String invokeID = evt.get_header("invoke_id");
+                //TODO: should check whether uaCSTA is allowed in config
+                if (String.IsNullOrEmpty(direction) || direction != "in")
+                    return; // Not for softphone                
+
+                Event response = new Event("CUSTOM", "uacsta::response::RetrieveCall"); // Response to mod_uacsta
+                response.AddHeader("direction", "out");
+                if (!String.IsNullOrEmpty(invokeID))
+                    response.AddHeader("invoke_id", invokeID);
+                if (!String.IsNullOrEmpty(device))
+                    response.AddHeader("device", device);
+                //TODO: Multiline support: Get account by device and select only the call with the matching gateway_id.
+
+                Call call = (from c in calls where c.state == CALL_STATE.Hold && c.call_ended == false select c).SingleOrDefault();
+                if (call == null)
+                {
+                    Utils.DebugWrite("No calls!");
+                    response.AddHeader("result", "failed");
+                    response.AddHeader("resultnote", "No held call found!");
+                    response.Fire();
+                    return;
+                }
+                response.AddHeader("result", "OK");
+                response.Fire();
+
+                // Hooking on
+                call.unhold();
+            }
+        }
+
+        private static void HandleChannelAnswerEvent(FSEvent evt, String uuid) {
 			Call call = (from c in calls where c.leg_b_uuid == uuid && c.call_ended == false select c).SingleOrDefault();
 			if (call == null){
 				String orig_dest = evt.get_header("Other-Leg-Destination-Number");
